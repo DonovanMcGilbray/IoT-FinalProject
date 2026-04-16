@@ -5,12 +5,13 @@
 #include "esp_http_server.h"
 
 // wifi
-const char* ssid = "WIFI";
-const char* password = "PASSWORD";
+const char* ssid = "wifi";
+const char* password = "";
 
 // mqtt
 const char* mqtt_server = "broker.emqx.io";
 const char* topic_cmd = "SyDo/cam1/control";
+const char* topic_event = "SyDo/cam1/event";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -18,7 +19,12 @@ PubSubClient client(espClient);
 // server
 const char* serverUrl = "http://YOUR_PC_IP:5000/upload";
 
-bool cameraOn = true;
+// ir sensor
+#define IR_PIN 13
+
+bool recording = false;
+unsigned long lastMotionTime = 0;
+const unsigned long motionTimeout = 5000; // stop if no motion for 5 seconds
 
 // camera
 void startCamera() {
@@ -26,7 +32,7 @@ void startCamera() {
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
 
-  config.pin_d0 = 5; config.pin_d1 = 18;
+  config.pin_d0 = 5;  config.pin_d1 = 18;
   config.pin_d2 = 19; config.pin_d3 = 21;
   config.pin_d4 = 36; config.pin_d5 = 39;
   config.pin_d6 = 34; config.pin_d7 = 35;
@@ -47,7 +53,7 @@ void startCamera() {
 
   config.frame_size = FRAMESIZE_QVGA;
   config.jpeg_quality = 10;
-  config.fb_count = 1;
+  config.fb_count = 2;
 
   esp_camera_init(&config);
 }
@@ -63,7 +69,9 @@ static esp_err_t stream_handler(httpd_req_t *req){
     if (!fb) continue;
 
     char header[64];
-    sprintf(header, "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", fb->len);
+    sprintf(header,
+      "--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n",
+      fb->len);
 
     httpd_resp_send_chunk(req, header, strlen(header));
     httpd_resp_send_chunk(req, (const char*)fb->buf, fb->len);
@@ -94,8 +102,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   msg.toUpperCase();
 
-  if (msg == "ON") cameraOn = true;
-  if (msg == "OFF") cameraOn = false;
+  if (msg == "ON") recording = true;
+  if (msg == "OFF") recording = false;
 }
 
 void reconnect() {
@@ -106,26 +114,24 @@ void reconnect() {
   }
 }
 
-// capture
-void captureBurst() {
-  for (int i = 0; i < 5; i++) {
-    camera_fb_t * fb = esp_camera_fb_get();
-    if (!fb) continue;
+// upload frames
+void captureFrame() {
+  camera_fb_t * fb = esp_camera_fb_get();
+  if (!fb) return;
 
-    HTTPClient http;
-    http.begin(serverUrl + String("?event=1"));
-    http.addHeader("Content-Type", "image/jpeg");
-    http.POST(fb->buf, fb->len);
+  HTTPClient http;
+  http.begin(serverUrl);
+  http.addHeader("Content-Type", "image/jpeg");
+  http.POST(fb->buf, fb->len);
 
-    http.end();
-    esp_camera_fb_return(fb);
-
-    delay(300);
-  }
+  http.end();
+  esp_camera_fb_return(fb);
 }
 
 void setup() {
   Serial.begin(115200);
+
+  pinMode(IR_PIN, INPUT);
 
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(300);
@@ -141,8 +147,26 @@ void loop() {
   if (!client.connected()) reconnect();
   client.loop();
 
-  if (cameraOn) {
-    captureBurst();
-    delay(10000);
+  int motion = digitalRead(IR_PIN);
+
+  // motion start
+  if (motion == HIGH) {
+    lastMotionTime = millis();
+
+    if (!recording) {
+      recording = true;
+      Serial.println("Motion detected → START recording");
+      client.publish(topic_event, "motion_start");
+    }
+
+    captureFrame();
+    delay(300);
+  }
+
+  // motion stop
+  if (recording && (millis() - lastMotionTime > motionTimeout)) {
+    recording = false;
+    Serial.println("No motion → STOP recording");
+    client.publish(topic_event, "motion_stop");
   }
 }

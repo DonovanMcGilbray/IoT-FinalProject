@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h1>Camera Events</h1>
+{% for event in logs %}
+  <h3>{{ event.timestamp }}</h3>
+  {% for img in event.frames %}
+    <img src="{{ url_for('static', filename=img) }}" width="200">
+  {% endfor %}
+{% endfor %}
+</body>
+</html>
