@@ -121,8 +121,9 @@ void captureFrame() {
 
   HTTPClient http;
   http.begin(serverUrl);
+  http.addHeader("X-API-KEY", "ProjectKey123");
   http.addHeader("Content-Type", "image/jpeg");
-  http.POST(fb->buf, fb->len);
+  int httpResponseCode = http.POST(fb->buf, fb->len);
 
   http.end();
   esp_camera_fb_return(fb);

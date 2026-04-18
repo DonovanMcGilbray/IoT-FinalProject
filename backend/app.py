@@ -33,6 +33,17 @@ mqtt_client.loop_start()
 # upload
 @app.route("/upload", methods=["POST"])
 def upload():
+    secret_key = request.headers.get('X-API-KEY')
+    if secret_key != "ProjectKey123":
+        return {"error": "Unauthorized Access"}, 401
+    
+    if 'image' not in request.files:
+        return {"error": "No image provided"}, 400
+    
+    file = request.files['image']
+    if not file.filename.endswith('.jpg'):
+        return {"error": "Invalid file type"}, 400
+
     global current_event
 
     if not current_event:
@@ -42,8 +53,7 @@ def upload():
     file_name_only = f"{current_event}_{ts}.jpg"
     full_path = os.path.join(UPLOAD_FOLDER, file_name_only)
 
-    with open(full_path, "wb") as f:
-        f.write(request.data)
+    file.save(full_path)
 
     db_path = f"images/{file_name_only}"
 
@@ -61,6 +71,9 @@ def upload():
 # get events
 @app.route("/events")
 def events():
+    secret_key = request.headers.get('X-API-KEY')
+    if secret_key != "ProjectKey123":
+        return {"error": "Unauthorized Access"}, 401
     return jsonify(list(db.events.find({}, {"_id": 0})))
 
 # dashboard
