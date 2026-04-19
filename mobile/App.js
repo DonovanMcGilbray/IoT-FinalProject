@@ -1,9 +1,10 @@
+import 'react-native-gesture-handler';
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 
 import Home from "./pages/Home";
-import Event from "./pages/Event";
+import Events from "./pages/Events";
 import Control from "./pages/Control";
 import Live from "./pages/Live";
 

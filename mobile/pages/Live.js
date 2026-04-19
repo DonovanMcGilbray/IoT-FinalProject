@@ -4,7 +4,7 @@ import { WebView } from "react-native-webview";
 
 export default function Live() {
   // replace with actual ESP32 IP address
-  const ESP32_URL = "http://192.168.1.XX/"; 
+  const ESP32_URL = "http://172.20.10.4/"; 
 
   return (
     <View style={styles.container}>
