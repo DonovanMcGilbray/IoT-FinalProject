@@ -5,8 +5,8 @@
 #include "esp_http_server.h"
 
 // wifi
-const char* ssid = "wifi";
-const char* password = "";
+const char* ssid = "FBI surveillance";
+const char* password = "Kitkat13#.";
 
 // mqtt
 const char* mqtt_server = "broker.emqx.io";
@@ -17,7 +17,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 // server
-const char* serverUrl = "http://YOUR_PC_IP:5000/upload";
+const char* serverUrl = "http://192.168.1.31:5000/upload";
 
 // ir sensor
 #define IR_PIN 13
